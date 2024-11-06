@@ -1,0 +1,160 @@
+---
+title: "DA5020.A5.NOAH.DCRUZ"
+output: html_document
+date: "2024-02-11"
+---
+
+```{r}
+## Will leave coments on analysis and code to show what i am doing
+## as this is what professor wanted
+
+## Question 1 (This parse and value throughout question)
+## libraies
+library(RCurl)
+library(XML)
+library(dplyr)
+library(tidyverse)
+
+
+# XML from url that Professor wants to examine
+url <- "https://www.senate.gov/general/contact_information/senators_cfm.xml"
+xml_data <- getURL(url)
+
+# Use xmlParse got this from class chat in microsoft teams
+parsed_data <- xmlParse(xml_data)
+
+# Getting memebers
+members <- getNodeSet(parsed_data, "//member")
+
+# Create a data frame that has all info
+# I did this manually aybe easyier way to get all data 
+senators <- do.call(rbind, lapply(members, function(x) {
+  data.frame(
+    member_full = xmlValue(x[["member_full"]]),
+    last_name = xmlValue(x[["last_name"]]),
+    first_name = xmlValue(x[["first_name"]]),
+    party = xmlValue(x[["party"]]),
+    state = xmlValue(x[["state"]]),
+    address = xmlValue(x[["address"]]),
+    phone = xmlValue(x[["phone"]]),
+    email = xmlValue(x[["email"]]),
+    website = xmlValue(x[["website"]]),
+    class = xmlValue(x[["class"]]),
+    bioguide_id = xmlValue(x[["bioguide_id"]])
+  )
+}))
+
+# This jsut tibble
+senators_tibble <- as_tibble(senators)
+
+# Dimensions
+dim(senators_tibble)
+
+# 100  11 is the dimensions
+
+```
+
+
+```{r}
+## Question 2 (This was hard I thought of how to get rid of charactera) 
+
+# Cleaning first name column as mnetinoed in instructions
+senators_tibble$first_name <- gsub("\\s.*", "", senators_tibble$first_name)
+senators_tibble$first_name
+# Get party info
+senators_tibble$party <- gsub(".*\\((.)-.*\\)", "\\1", senators_tibble$member_full)
+senators_tibble$party
+# fUll name column with requested info of first,last and party 
+senators_tibble$full_name <- paste(senators_tibble$first_name, senators_tibble$last_name, senators_tibble$party)
+senators_tibble$full_name
+
+
+## This is First name, last name and part letter affliation
+```
+
+
+```{r}
+## Question 3
+
+senatorsByState <- function(state_abbr) {
+  # Find state abbreviatons
+  senators_for_state <- senators_tibble %>% filter(state == state_abbr)
+  
+  # Message as istructions said
+  message <- paste("The senators for", state_abbr, "are:")
+  if(nrow(senators_for_state) > 0) {
+    senator_details <- vector("list", length = nrow(senators_for_state))
+    for(i in 1:nrow(senators_for_state)) {
+      # info for senator
+      senator_details[[i]] <- paste(senators_for_state$first_name[i], 
+                                    senators_for_state$last_name[i], 
+                                    party_full_name[senators_for_state$party[i]])
+    }
+    # Info into a message
+    message <- paste(message, paste(senator_details, collapse = ", "), sep=" ")
+  } else {
+    message <- paste(message, "No senators found.")
+  }
+  
+  
+  cat(message)
+}
+
+# Full info of lettrers
+party_full_name <- c(D = "Democratic Party", R = "Republican Party", I = "Independent")
+
+# Do for Ma
+senatorsByState('MA')
+
+## Geting similar to what the instructions mentioned in question
+```
+
+
+```{r}
+## Question 4 using pivot_longer(), pivot_wider() and separate()
+
+# Data
+unemploymentinfo <- read.csv("Ratio Of Female To Male Youth Unemployment Rate.csv", header = TRUE, skip = 4, sep = ',')
+
+# Country_name tibble i had to remove no duplicates as insutrctions mentioned
+country_name <- unemploymentinfo %>%
+  select(Country.Name, Country.Code) %>%
+  distinct()
+
+country_name
+
+# This just indicator data as mentioned by instructions
+indicator_data <- unemploymentinfo %>%
+  pivot_longer(c(starts_with("X")),names_to = 'Year', values_to = "Value") %>%
+  separate(Year, into=c("X","Year"), sep=1) %>%
+  select(Country.Code,Year,Value)
+
+indicator_data
+
+## Got the format wanted in question that the insturecitons wanted
+```
+
+
+
+```{r}
+## Question 5
+
+# Year
+indicator_data$Year <- as.numeric(indicator_data$Year)
+
+# Countries to see (FORMAT IS NA, ASIA AND ME)
+countries <- c("CAN","USA", "MEX", "CRI", "GTM", "CHN", "KOR", "VNM", "KHM", "JPN", "SAU", "KWT", "JOR", "IRN", "IRQ")
+take <- indicator_data %>%
+  filter(Country.Code %in% countries)
+
+## This jsut plot for 20 years for the countries
+ggplot(take) + geom_line(aes(Year, Value, group = Country.Code)) +
+  facet_wrap(~Country.Code) +
+  xlim(2000,2020)
+
+## Japan, China and Canada pretty stable line, maybe policies or beacuse of age demogprahics
+## Region differnces NA and Asian  more stable than ME
+## ME more chaotics due to region being unstable I guess (I have no clue tbh please dont punsish me for lacak of general knowldge)
+
+```
+

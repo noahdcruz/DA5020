@@ -1,0 +1,188 @@
+```{r}
+# Librariesa
+library(openintro)
+library(readr)
+library(tibble)
+library(lubridate)
+library(ggplot2)
+
+
+#A confidence interval is a range of values that estimated to contain the true population parameter
+#like a mean, with a degree of confidence, such as 95% 
+#Its significance lies in providing a measure of the precision of our estimate
+
+#A prediction interval gives the range within which we can expect individual observations to fall
+#with a level of confidence. It is significant because it accounts for individual variability and I think wider than confidence
+
+#Multiple linear regression is a statistical technique that models the relationship between a dependent
+#variable and two or more independent variables
+
+#Its used to understand how changes in the independent variables are associated with changes in the dependent one
+
+
+
+#Q1
+
+# Loading dataset
+data(ncbirths)
+
+# First few entres
+head(ncbirths)
+
+# Summary stats
+summary(ncbirths)
+
+# Look at structure
+str(ncbirths)
+
+# coloumn names
+colnames(ncbirths)
+
+dim(ncbirths)
+
+# Glimpse
+glimpse(ncbirths)
+
+#Last row like Python
+tail(ncbirths)
+```
+
+
+```{r}
+# Question 2
+# Pick numerical fields
+numeric_fields <- ncbirths[, sapply(ncbirths, is.numeric)]
+
+# Get correlation matrix
+cor_matrix <- cor(numeric_fields, use="complete.obs")  # 'complete.obs' handles missing values by case-wise deletion
+
+# Print matrix
+print(cor_matrix)
+
+# Visualize the matrix
+heatmap(cor_matrix, symm = TRUE, Rowv = NA, Colv = NA, scale="none", margins=c(5,5))
+
+# Check summary
+summary(ncbirths)
+
+## here we have a correlation matrix that is fully plotted out
+## There is a strong corfealtion betwen fage fathers age and mage mothers age
+## This suggests multicollinearity, which can cause problems in a regression model in
+## estimating the individual effect of each of variables
+```
+
+
+
+
+```{r}
+# Question 3
+
+# Multiple regression model
+full_model <- lm(weight ~ . -weight, data=ncbirths)
+
+# Summarize
+model_summary <- summary(full_model)
+print(model_summary)
+
+# Print what professor mentioned in instrusction
+cat("R-squared:", model_summary$r.squared)
+cat("Adjusted R-squared:", model_summary$adj.r.squared)
+cat("Standard Error:", model_summary$sigma)
+cat("F-Statistic:", model_summary$fstatistic[1], "on", model_summary$fstatistic[2], "and", model_summary$fstatistic[3], "degrees of freedom")
+cat("p-values of coefficients:")
+print(coef(summary(full_model)))
+
+#R-squared: The R-squared value is approximately 0.605 
+#which means about 60.5% of the variability in birth weight is explained by the model
+#Adjusted R-squared: The adjusted R-squared is approximately 0.599
+#which is close to the R-squared value, indicating that the model does not have too many useless terms (I guess)
+#The standard error of the model is about 0.913. the average distance that the observed values fall from the regression line
+#which is the average distance that the observed values fall from the regression line.
+#The F-statistic is about 100.43 with 12 and 787 degrees of freedom
+#and the associated p-value is less than 2.2e-16, which is small. We have very strong evidence against the null hypothesis
+#Looking at the p-values of the coefficients: weeks, gained, lowbirthweightnot low, gendermale, and whitemomwhite have signifcant p-values (les than 0.05), meaning statistically significant.
+#The coefficients for fage, mage, matureyounger mom, premiepremie, visits, and maritalmarried have high p-values
+
+```
+
+
+```{r}
+# Q4
+
+# Full model
+model <- lm(weight ~ ., data = ncbirths)
+
+# Summarize
+summary(model)
+
+
+#This variable was removed first due to its high p-value (0.975106)
+#showing that it was not statistically significant in predicting birth weight
+
+# v1
+model <- update(model, . ~ . - mage)
+summary(model)
+
+# Mature wa sremoved for similar reasons
+
+# Removing 'mature' 
+model <- update(model, . ~ . - mature)
+summary(model)
+
+# The number of prenatal visits did not significantly impact birth weight 
+
+# Removing 'visits' 
+model <- update(model, . ~ . - visits)
+summary(model)
+
+# High p value shows that premature births did not statistically affect the model
+
+# Remove 'premie'
+model <- update(model, . ~ . - premie)
+summary(model)
+
+# High P value meaning that the marital status of the mother did not have an association with birth weight
+
+# Remove 'maritalmarried' 
+model <- update(model, . ~ . - marital)
+summary(model)
+
+## Basically kept removing the statistcically insignifcant variables and checked if adjusted r squared got to 0.6
+## The remaining variables in the model are stastically signifacnt 
+```
+
+
+
+```{r}
+# Q5
+
+# New data for prediction
+new_data <- data.frame(
+  fage = 40,
+  weeks = 42,
+  gained = 22,
+  lowbirthweight = 'not low',
+  gender = 'female',
+  habit = 'nonsmoker',
+  whitemom = 'white'
+)
+
+
+# Predict the birth weight using the final model
+predicted_weight <- predict(model, newdata = new_data, interval = "none")
+
+# 95% confidence and prediction intervals
+intervals <- predict(model, newdata = new_data, interval = "confidence")
+prediction_intervals <- predict(model, newdata = new_data, interval = "prediction")
+
+# Output 
+predicted_weight
+intervals
+prediction_intervals
+
+#The predicted birth weight for the new data is approximately 8.02 pounds.
+#The 95% confidence interval for the mean birth weight  is between approximately 7.85 and 8.18 pounds. This is small,a precise estimate of the mean birth weight for the population represented by the new data
+#The 95% prediction interval for the birth weight of an individual baby with the given characteristics is between approximately 6.22 and 9.81 pounds. This interval is biger than the confidenc interval, which is due to the individual data point variation
+
+```
+

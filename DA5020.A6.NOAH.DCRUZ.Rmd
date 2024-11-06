@@ -1,0 +1,284 @@
+=
+```{r}
+## HW 6
+## Will comment code as Professor requires it
+
+#Bonus
+#Part 2
+
+# Loading libraries
+library(RSQLite)
+library(DBI)
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+# Connect RSQLit
+con <- dbConnect(RSQLite::SQLite(), dbname="imdb-1.db")
+
+# This just find the average runtime for thriller movies as mentined in question
+query <- "SELECT AVG(Runtime) AS Average_Runtime FROM movie_info WHERE Genre LIKE '%Thriller%'"
+
+# This jsut get result
+avg_runtime <- dbGetQuery(con, query)
+
+# Print
+print(avg_runtime)
+
+# 119.6423 minutes is avg runtime
+```
+
+
+
+```{r}
+
+# Question 1
+
+# Director_info table
+dbExecute(con, "CREATE TABLE IF NOT EXISTS director_info (Director_ID INTEGER PRIMARY KEY, Director_Name TEXT)")
+
+# Load file
+directors <- read_csv("directors-1-1.csv")
+
+# Basic data analysis on data
+cat("Basic Exploratory Data Analysis (EDA):")
+num_rows <- nrow(directors)
+num_columns <- ncol(directors)
+cat("Number of rows:", num_rows, "Number of columns:", num_columns)
+
+## 548 ROWS AND 2 COLUMNS
+
+# This just dimensions
+dimensions <- dim(directors)
+cat("Dimensions of the dataframe: ", dimensions)
+
+# 548 BY 2
+
+# This just missing values
+missing_values <- sapply(directors, function(x) sum(is.na(x)))
+cat("Missing values in each column:")
+print(missing_values)
+
+# 0 AND 0
+
+# This just priting the first few entries
+cat("Head of the dataframe:")
+print(head(directors))
+
+# This jsut pritnig the last entires
+cat("Tail of the dataframe:")
+print(tail(directors))
+
+# Find duplicates
+duplicates <- directors[duplicated(directors$Director_ID) | duplicated(directors$Director_ID, fromLast = TRUE), ]
+print(duplicates)
+
+# no duplicates
+
+# Finding duplicate rowes
+num_duplicates <- nrow(duplicates)
+print(num_duplicates)
+
+# no duplicates
+
+# Write director_info table SQLite database
+dbWriteTable(con, "director_info", directors, overwrite = TRUE, row.names = FALSE)
+
+# First few entries
+imported_data <- dbReadTable(con, "director_info")
+cat("Imported data verification:")
+print(head(imported_data))
+
+```
+
+```{r}
+# Question 2
+# part 1
+
+### Rows from imfo
+query_movie_info <- "SELECT COUNT(*) AS NumberOfRows FROM movie_info"
+
+# Result for movie_info
+rows_movie_info <- dbGetQuery(con, query_movie_info)
+
+# Print rows in the movie_info table
+cat("Number of rows in movie_info table:", rows_movie_info$NumberOfRows)
+
+## 1000 rows
+
+# Get numbwr of rows in director_info table
+query_director_info <- "SELECT COUNT(*) AS NumberOfRows FROM director_info"
+
+# Get result for director_info
+rows_director_info <- dbGetQuery(con, query_director_info)
+
+# Print rows in tabke
+cat("Number of rows in director_info table:", rows_director_info$NumberOfRows)
+
+# 548 ROWS
+
+```
+
+```{r}
+# part 2
+
+# Count movies 2010-2020 mnetioned by prof instruscions
+query <- "
+  SELECT Release_Year, COUNT(*) AS Movie_Count
+  FROM movie_info
+  WHERE Release_Year BETWEEN 2010 AND 2020
+  GROUP BY Release_Year
+  ORDER BY Release_Year
+"
+
+# Gett trhe result
+movie_counts <- dbGetQuery(con, query)
+
+print(movie_counts)
+
+# Get the total number of movies
+total_movies <- sum(movie_counts$Movie_Count)
+
+
+# Make year to numeric this beacuse my graph was having problems
+movie_counts$Release_Year <- as.numeric(as.character(movie_counts$Release_Year))
+
+# Plot
+ggplot(movie_counts, aes(x = Release_Year, y = Movie_Count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "# Movies from 2010 - 2020",
+       x = "Year",
+       y = "Number of Movies") +
+  scale_x_continuous(breaks = 2010:2020)
+
+#General increase in amount of moveis tops around 2013 to 2014.
+# Huge decrease in 2020 due to Covid
+
+```
+
+
+```{r}
+# Printing the total number of movies released
+print(total_movies)
+```
+
+
+
+```{r}
+# Part 3
+
+# Get min, avg, and max ratings for 'Action' movies
+query_ratings <- "
+SELECT 
+    MIN(IMDB_Rating) AS Min_Rating,
+    AVG(IMDB_Rating) AS Avg_Rating,
+    MAX(IMDB_Rating) AS Max_Rating
+FROM 
+    movie_info
+WHERE 
+    Genre LIKE '%Action%'
+"
+
+# Get the result
+ratings_action_movies <- dbGetQuery(con, query_ratings)
+
+# Print
+print(ratings_action_movies)
+```
+
+```{r}
+# Part 4
+
+# This just me finding the title, genre, and gross revenue of 25 highest-grossing movies within the dataset
+
+query_highest_grossing <- "
+  SELECT Series_Title, Genre, Gross
+  FROM movie_info
+  ORDER BY Gross DESC
+  LIMIT 25
+"
+
+# Storing the reulst
+highest_grossing_movies <- dbGetQuery(con, query_highest_grossing)
+
+# Print
+print(highest_grossing_movies)
+
+# Series Title, Genre and Gross
+# First two display but for some reaseon can not get Gross to show tried 6 times. :(
+# You see a lot of these moveis are multiple genres
+```
+
+```{r}
+#Part 5
+
+# Total gross for each director
+
+query_directors_gross <- "
+  SELECT di.Director_Name, SUM(mi.Gross) as Total_Gross
+  FROM movie_info mi
+  JOIN director_info di ON mi.Director_ID = di.Director_ID
+  GROUP BY di.Director_Name
+  ORDER BY Total_Gross DESC
+"
+
+# Storng the result
+directors_gross <- dbGetQuery(con, query_directors_gross)
+
+# Plot 
+ggplot(directors_gross, aes(x = reorder(Director_Name, -Total_Gross), y = Total_Gross)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Total Gross by Director",
+       x = "Director Name",
+       y = "Total Gross") 
+
+### This graph looks like an insane mess so wll change it
+
+# Pick top 20 cutting out the bottom
+top_directors <- head(directors_gross, 20)
+
+ggplot(top_directors, aes(x = reorder(Director_Name, -Total_Gross), y = Total_Gross)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  labs(title = "Total Gross by Director this time i pick Top 20",
+       x = "Director Name",
+       y = "Total Gross")
+
+# Speilberg first (Schindlers list and other succesfsful movies)
+# Russo next Marvel 
+## Nolan third (Interstellar, Inception, Dark Knight, Oppenheimer)
+```
+
+```{r}
+# Part 6
+
+# verifyDirector function
+verifyDirector <- function(director_name) {
+  
+  # Find the director in the director_info table
+  query <- paste0("SELECT * FROM director_info WHERE Director_Name LIKE '%", director_name, "%'")
+  
+  # Get reuslt
+  result <- dbGetQuery(con, query)
+  
+  # Find director and display mesg
+  if (nrow(result) > 0) {
+    message("Director found: ", director_name)
+  } else {
+    message("Director not found: ", director_name)
+  }
+  
+  # End conection
+  dbDisconnect(con)
+}
+
+verifyDirector("Christopher Nolan")
+
+
+# Found nolan he is in the data have the message that says he is found
+```
+

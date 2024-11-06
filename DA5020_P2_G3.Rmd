@@ -1,0 +1,601 @@
+---
+title: "Practicum_2"
+output: html_document
+date: "2024-03-17"
+---
+
+
+
+#### Loading the necessary libraries
+```{r , warning=FALSE}
+
+library(tidyverse)
+
+library(rebus)
+
+library(RSQLite)
+
+```
+
+
+#### Bed_fact dataset
+```{r}
+
+bed_fact = read_csv("/Users/sharadraina/Desktop/Practicum/Practicum_2/bed_fact-1.csv" , show_col_types = FALSE)
+
+head(bed_fact)
+
+```
+
+
+
+
+
+
+#### EDA
+
+```{r}
+
+#Checking for dimensions of the dataset.
+dim(bed_fact)
+
+#Checing for NA values
+sum(is.na(bed_fact))
+
+#Checking for duplicate values
+sum(duplicated(bed_fact))
+
+#Checking distribution for bed id's
+ sort(table(bed_fact$bed_id) , decreasing = TRUE)
+
+```
+
+
+##### The data set consists of 51458 rows and 5 columns. The number of NA and duplicate values are zero. 
+
+##### The table function reveals that the maximum number of beds belong to bed_id 18 followed by 8. This can be attributed to important description the bed is being used for like surgery or ICU etc.
+
+
+```{r}
+
+#Checking summary statistics of the dataset.
+
+summary(bed_fact)
+
+```
+
+##### The ims_org_id column is a foreign key which represents the unique id's of different hospitals totalling 51458 in number. This number may reflect duplicate values as well. 
+
+##### The bed_id column is a foreign key here and its max value represents that we have 20 different types of bed like ICU , Surgery etc. 
+
+##### The rest of the columns represent total number of beds for each of the 3 bed types. From the above figures, it can be said that license_beds are highest in number followed by staffed_beds and census_beds.
+
+
+
+
+#### Checking for outliers
+```{r}
+
+ bed_fact %>%
+  
+  ggplot(aes(license_beds)) +
+  
+  geom_boxplot() +
+  
+  theme_classic()
+
+
+  bed_fact %>%
+  
+  ggplot(aes(census_beds)) +
+  
+  geom_boxplot() +
+  
+  theme_classic()
+
+
+  bed_fact %>%
+  
+  ggplot(aes(staffed_beds)) +
+  
+  geom_boxplot() +
+  
+  theme_classic()
+
+
+
+
+```
+
+
+
+
+
+
+#### Plotting each type of bed
+```{r}
+
+beds =  bed_fact %>%
+  
+  pivot_longer(cols = c("license_beds","census_beds","staffed_beds") , names_to = "Type of bed" , values_to = "No. of beds") 
+  
+
+beds %>%
+  
+  ggplot(aes(`Type of bed` , `No. of beds` / 1000000 )) +
+  
+  geom_bar(stat = "identity", color = "red") +
+  
+  scale_y_continuous(labels = function(x) paste0(x , "M")) +
+  
+  labs(title = "Total number of beds for each type" , y = "No. of beds (millions)") +
+  
+  theme_classic()
+
+
+```
+
+
+
+
+
+
+#### Bed_type dataset
+```{r}
+
+bed_type = read_csv("/Users/sharadraina/Desktop/Practicum/Practicum_2/bed_type-1.csv" , show_col_types = FALSE)
+
+head(bed_type)
+
+```
+
+##### This dataset provides information on all the unique beds in terms of there bed id's, bed codes and there descriptions. Our focus in this project will be on ICU and SICU beds.
+
+
+#### EDA
+
+```{r}
+
+#Checking for dimensions of the dataset.
+dim(bed_type)
+
+#Checking for any missing values.
+sum(is.na(bed_type))
+
+#Checking for any duplicate records
+sum(duplicated(bed_type))
+
+
+
+```
+
+
+
+```{r}
+
+#Checking summary statistics for the dataset.
+
+summary(bed_type)
+
+
+```
+
+##### The bed_id column in the dataset is a primary key that records information on the bed_code and the bed description. There are no missing or NA values in the dataset.
+
+
+
+
+
+
+#### Bussiness dataset
+```{r}
+
+bussiness = read_csv("/Users/sharadraina/Desktop/Practicum/Practicum_2/business-1.csv")
+
+head(bussiness)
+
+
+```
+
+
+
+
+#### EDA
+
+```{r}
+
+#Checking for dimensions of the dataset.
+dim(bussiness)
+
+#Checking for NA values
+sum(is.na(bussiness))
+
+#Checking for duplicate records
+sum(duplicated(bussiness))
+
+
+```
+
+
+
+```{r}
+
+# Checking for summary statistics.
+
+summary(bussiness)
+
+
+  
+
+```
+
+
+##### The ims_org_id column acts as a primary key that records names of various hospitals that are 22202 in number. The rest columns represent the total number of beds each hospital has for the 3 bed types.
+
+
+
+
+
+
+
+
+
+
+
+
+#### Question 1 Identifying dimension variables
+```{r}
+
+#Identifying dimension and fact variable from bed_type dataframe.
+head(bed_type)
+
+```
+
+
+##### The column bed_id which is a primary key will be considered as a dimension variable as it provides no quantitative measurement for bussiness solutions. 
+
+##### Fact variables should represent information that can be aggregated or compared for bussiness analysis whilst this column only uniquely identifies the description of bed. 
+
+##### The other 2 columns are also dimension vaiables as they are storing the attributes for the id's of different beds and belong to categorical data type.
+
+
+
+```{r}
+
+#Identifying dimension and fact variable from bussiness dataframe.
+
+head(bussiness)
+
+
+```
+
+
+##### This dataset has 3 dimension variables which are ims_org_id, business_name and bed_cluster_id. These columns represents attributes and provide qualitative information for the variable they store hence they are acting as dimension variables. 
+
+##### The columns ttl_license_beds, ttl_census_beds and ttl_staffed_beds represent total number of beds that each hospital has and thus represents a quantitative measurement which can provide some bussiness analysis.
+
+
+
+
+#### Question 2 Identifying fact variables
+
+```{r}
+
+head(bed_fact)
+
+```
+
+
+##### In this dataset there are 2 dimension variables which are ims_org_id and bed_id as these are categorical data representing attributes of hospital names as well as bed description. These variables dont provide any quantitative value which can be used to analyse data. 
+
+##### The remaining 3 columns in the dataset are fact variables as they are continuous in nature and represent quantitative information which can be aggregated or compared or analysed to derive some bussiness metrics. 
+
+
+
+
+
+
+#### Creating my connection "dbconnection" to the database 
+```{r}
+
+dbconnection = dbConnect(SQLite() , "/Users/sharadraina/Desktop/Practicum/Practicum_2/beddb.db")
+
+```
+
+
+#### Checking the tables in my database
+```{r}
+
+dbListTables(dbconnection)
+
+
+```
+
+
+
+#### 3a. Analysis for Leadership 
+
+
+#### License Beds
+```{r}
+
+#Top 10 hospitals ordered by license beds after performing inner join on bed fact and bussiness table.
+
+
+query =  "SELECT business_name, SUM(CAST(license_beds AS INT)) AS [Total License Beds]     
+          FROM bedfact
+          
+          JOIN bussiness ON bedfact.ims_org_id = bussiness.ims_org_id
+          
+          WHERE bed_id = 4 OR bed_id = 15         
+          
+          GROUP BY business_name
+          
+          ORDER BY [Total License Beds] DESC    
+          
+          LIMIT 10;"                                                                       
+
+License_Beds =  dbGetQuery(dbconnection , query)
+
+License_Beds
+
+```
+
+
+
+#### Census Beds
+```{r}
+
+#Top 10 hospitals ordered by census beds after performing inner join on bed fact and bussiness table.
+
+
+query =  "SELECT business_name, SUM(CAST(census_beds AS INT)) AS [Total Census Beds]     
+          FROM bedfact
+          
+          JOIN bussiness ON bedfact.ims_org_id = bussiness.ims_org_id
+          
+          WHERE bed_id = 4 OR bed_id = 15             
+          
+          GROUP BY business_name
+          
+          ORDER BY [Total Census Beds] DESC
+          
+          LIMIT 10;"                                                                     
+
+Census_Beds =  dbGetQuery(dbconnection , query)
+
+Census_Beds
+
+
+
+
+
+```
+
+
+
+
+
+
+
+#### Staffed Beds
+```{r}
+
+#Top 10 hospitals ordered by staffed beds after performing inner join on bed fact and bussiness table.
+
+
+query =  "SELECT business_name, SUM(CAST(staffed_beds AS INT)) AS [Total Staffed Beds]      
+          FROM bedfact
+          
+          JOIN bussiness ON bedfact.ims_org_id = bussiness.ims_org_id
+          
+          WHERE bed_id = 4 OR bed_id = 15                
+          
+          GROUP BY business_name
+          
+          ORDER BY [Total Staffed Beds] DESC  
+          
+          LIMIT 10;"                                                                        
+
+Staffed_Beds =  dbGetQuery(dbconnection , query)
+
+Staffed_Beds
+
+
+
+
+```
+
+
+#### 3b. Interpretation of Findings
+
+
+
+##### The volume of beds across three categories: licensed beds, census beds, and staffed beds.
+
+ 
+#### The top one or two hospitals per list based on bed volume:
+
+#### Licensed Beds:
+ 
+### Phoenix Children's Hospital with 247 licensed beds.
+
+### University of Maryland Medical Center with 220 licensed beds.
+ 
+#### Census Beds:
+ 
+### Shands Hospital at the University of Florida with 167 census beds.
+
+### Dallas County Hospital Association with 145 census beds.
+ 
+#### Staffed Beds:
+ 
+### Vidant Medical Center with 203 staffed beds.
+
+### Rady Children's Hospital and Health Center with 200 staffed beds.
+ 
+#### After analyzing the data, the hospitals that appear on multiple lists, thus indicating they have a significant volume of ICU/SICU beds in terms of licensing, census, and staffing:
+ 
+### University of Maryland Medical Center appears in the top lists for both licensed and staffed beds.
+
+### Dallas County Hospital Association is present in the top lists for both census and staffed beds.
+ 
+#### These two hospitals would be good candidates for the intervention pilot program because they consistently show a higher bed count across categories.
+ 
+#### This suggests they have the infrastructure and capacity to support an increase in nurse staffing, and likely handle a higher volume of patients, which is cost effective and beenfits of the program.
+ 
+#### Moreover, since the pilot program is focusing on improving nurse-to-patient ratios in ICUs and SICUs, we hav to ensure that these hospitals not only have a high number of beds but also a significant volume of patients in these specific units.
+
+#### This is where the census and staffed bed counts are particularly useufl because they reflect the actual usage and staffing capacity for intensive care.
+
+#### By choosing hospitals with the highest counts in more than one category, leadership can be more confident that the intervention will be launched where its impact can be effectively measured and where there is enough patient volume to justify the investment.
+
+#### These hospitals are likely to have more robust data collection and reporting practices due to their massive size, which can aid in a more accurate assessment of the intervention's outcomes.
+
+
+
+
+
+
+
+#### 4a. Drill down investigation 
+
+
+#### License Beds
+```{r}
+
+#Query for fetching top 10 hospitals having both SICU and ICU beds
+query = "SELECT  business_name , SUM(cast(license_beds as int)) [Total License Beds]    
+
+FROM    bedfact
+
+join bussiness on bedfact.ims_org_id = bussiness.ims_org_id
+
+join bedtype on bedtype.bed_id = bedfact.bed_id
+
+where bedfact.bed_id in (15,4)                                                          
+
+group by business_name
+
+having COUNT(business_name) > 1                                                          
+
+order by [Total License Beds] desc                                                      
+
+limit 10 ;"                                                                             
+
+
+Total_License_Beds = dbGetQuery(dbconnection , query)
+
+Total_License_Beds
+
+
+
+
+
+```
+
+
+
+
+
+#### Census Beds
+```{r}
+
+#Query for fetching top 10 hospitals having both SICU and ICU beds
+query = "SELECT  business_name , SUM(cast(census_beds as int)) [Total Census Beds]      
+
+FROM    bedfact
+
+join bussiness on bedfact.ims_org_id = bussiness.ims_org_id
+
+join bedtype on bedtype.bed_id = bedfact.bed_id
+
+where bedfact.bed_id in (15,4)                                                          
+
+group by business_name
+
+having COUNT(business_name) > 1                                                          
+
+order by [Total Census Beds] desc                                                       
+
+limit 10 ;"                                                                             
+
+
+Total_Census_Beds = dbGetQuery(dbconnection , query)
+
+Total_Census_Beds
+
+
+```
+
+
+
+
+#### Staffed Beds
+```{r}
+
+#Query for fetching top 10 hospitals having both SICU and ICU beds
+query = "SELECT  business_name , SUM(cast(staffed_beds as int)) [Total Staffed Beds]   
+
+FROM    bedfact
+
+join bussiness on bedfact.ims_org_id = bussiness.ims_org_id
+
+join bedtype on bedtype.bed_id = bedfact.bed_id
+
+where bedfact.bed_id in (15,4)                                                          
+
+group by business_name
+
+having COUNT(business_name) > 1                                                         
+
+order by [Total Staffed Beds] desc                                                     
+ 
+limit 10 ;"                                                                            
+
+
+Total_Staffed_Beds = dbGetQuery(dbconnection , query)
+
+Total_Staffed_Beds
+
+
+
+```
+
+
+
+
+
+#### 4b. Final recommendation 
+
+
+#### Taking into account the provided data and the aim of the pilot intervention program, my final recommendation for leadership is as follows:
+  
+### University of Maryland Medical Center: 
+
+#### This institution is a standout choice as it appears on multiple lists, indicating it has a significant volume of ICU/SICU beds. Specifically, it ranks high for both licensed and staffed beds. This suggests the hospital not only has the space and approval to operate a high number of beds but also has the staffing resources that could potentially include nurses. 
+
+#### This balance is crucial for implementing a program focusing on nurse-to-patient ratios, as it indicates the facility likely has the demand for ICU/SICU services and the staffing framework into which additional nursing resources could be integrated.
+
+### Shands Hospital at the University of Florida: 
+
+#### Shands Hospital has the highest number of census beds, which means it likely has a high utilization rate of its ICU/SICU. The high census bed count indicates a large volume of patients, which is where the impact of improved nurse-to-patient ratios could be most beneficial and measurable. Additionally, this hospital also ranks high in staffed beds, suggesting that it has a substantial existing staff infrastructure to support an increase in nurse staffing.
+
+#### These hospitals are selected not only for their high bed counts but for their potential to provide a suitable environment for a successful pilot program. 
+
+#### Their presence across multiple lists suggests they have the requisite infrastructure, patient volume, and staffing levels needed to support and benefit from the intervention. 
+
+#### Furthermore, as larger hospitals, they are likely to have the capacity for robust data collection, which will be essential in evaluating the program's success and potential scalability.
+
+
+
+
+
+
+
+
+
+
+
+
+

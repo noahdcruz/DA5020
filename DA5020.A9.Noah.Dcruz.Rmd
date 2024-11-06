@@ -1,0 +1,254 @@
+---
+title: "asasasasa"
+output: html_document
+date: "2024-04-01"
+---
+
+```{r}
+# Q1
+
+library(readr)
+library(dplyr)
+library(tibble)
+library(lubridate)
+library(ggplot2)
+library(forecast)
+
+file_path <- "Air_Traffic_Passenger_Statistics (1)-1.csv"
+
+# Loadding
+data <- readr::read_csv(file_path)
+
+# Seeing the first few rows of the dataset similar to Python
+head(data)
+
+# Summary statistics of the dataset
+summary(data)
+
+# Seeing structure
+str(data)
+
+# This just shows coloumn names
+colnames(data)
+
+# This juse shows dimensions of the data: 46,670 rows and 12 columns.
+dim(data)
+
+# Quick brief glimpse of dataset
+glimpse(data)
+
+#Seeing the last rows of the dataset similar to Python
+tail(data)
+```
+```{r}
+# Q2
+
+## Graph shows total domestic passengers in March from 2006 to 2021
+## Can see upwards trend from 2006 to 2019, maybe this could be due to spring
+## break as spring break is always in March and people do travel for the break
+## There is drop in 2020 and 2021 due to Covid-19, quarantines,
+## lockdown and travel restrictions. Not covid or flight expert btw
+
+# Here I changed to Date format
+data$Date <- ymd(paste0(data$`Activity Period`, "01"))
+
+# Here i just filtered for Domestic Activity in March
+march_domestic <- data %>%
+  filter(`GEO Summary` == "Domestic", month(Date) == 3)
+
+# Getting year
+march_domestic$Year <- year(march_domestic$Date)
+
+# Get the counts of passengers by year
+total_passengers_by_year <- march_domestic %>%
+  group_by(Year) %>%
+  summarise(Total_Passengers = sum(`Passenger Count`))
+
+# Ploting as mentioned bt professor in instructions
+ggplot(total_passengers_by_year, aes(x = Year, y = Total_Passengers)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = total_passengers_by_year$Year) + 
+  labs(title = "Domestic Passengers in March from 06-21",
+       x = "Year", y = "Total Passengers") +
+  theme_minimal()
+
+```
+
+```{r}
+# Q3
+
+## Forecast for total passenger activity in March 19 using a simple moving average
+## based on March 2016,2017 and 2018 was 6,771,607 passengers. While, the actual amount 
+## was 6,899,726 passengers. Difference is 128,119
+## Since, the simple moving averaage forecast was lower than the actual figure, maybe the
+## method did not capture external or random trends in data leading up to 2019.
+## That can not be seen in the data of 2016,2017 and 2018. Not a flying expert btw
+
+total_passengers_by_year$Year <- as.numeric(as.character(total_passengers_by_year$Year))
+
+# Filtering out as mentioned by instructions
+moving_average_data <- total_passengers_by_year %>%
+  filter(Year %in% c(2016, 2017, 2018))
+
+# Find the simple moving average
+forecast_2019 <- mean(moving_average_data$Total_Passengers)
+
+# Get the actual value for March 2019
+actual_2019 <- total_passengers_by_year %>%
+  filter(Year == 2019) %>%
+  pull(Total_Passengers)
+
+# This just subtrcting actaual and forecast to find the error
+error_2019 <- actual_2019 - forecast_2019
+
+list(forecast_2019 = forecast_2019, actual_2019 = actual_2019, error_2019 = error_2019)
+```
+```{r}
+# Q4
+
+## Weighted moving average forecast for total passengers activtiy in March 2019
+## was 6,865,349. The forecast error which is the difference between the actual and
+## the forecasted was 34,377.47 passengers. The weighted moving average forecast
+## is much closer to the actual value than the simple moving average forecast.
+## Weighting probabrly produces better forecast due to weights being placed on
+## recent data.
+
+# Weights as wanted by the Professor
+weights <- c(3, 5, 7)
+
+
+moving_average_data <- moving_average_data %>%
+  arrange(Year)
+
+# Weighted average
+weighted_average <- sum((moving_average_data$Total_Passengers * weights)) / sum(weights)
+
+# Calculate the forecast error
+weighted_error_2019 <- actual_2019 - weighted_average
+
+list(weighted_forecast_2019 = weighted_average, actual_2019 = actual_2019, weighted_error_2019 = weighted_error_2019)
+
+```
+```{r}
+# Q5
+
+## The exponential smoothing forecast for total passenger activity in March 2019
+## was 6,991,737 passengers using an alpha of 0.7
+## This probably due to the model giving a high weight to more recent data.
+## Actual recorded passenger activity was 6,899,726 passengers. The forcast
+## error is -92,010.74 passengers, overestimating the actual count. 
+## Maybe there are external factors that are not being tracked or monitored that
+## is why the actual domestic passengers did not grow by that amount
+
+
+#Get data from 2008 to 2018 as mentioned by professors instructions
+model_data <- total_passengers_by_year %>%
+  filter(Year >= 2008 & Year < 2019)
+
+# Simple exponential smoothing using ses() function 
+ses_model <- ses(model_data$Total_Passengers, alpha = 0.7)
+
+# Forecasting for March 2019
+forecast_2019 <- forecast(ses_model, h = 1)
+
+forecast_value_2019 <- forecast_2019$mean
+
+# Get the forecast error
+error_2019_expsmooth <- actual_2019 - forecast_value_2019
+
+list(forecast_value_2019 = forecast_value_2019, actual_2019 = actual_2019, error_2019_expsmooth = error_2019_expsmooth)
+
+```
+```{r}
+# Q6
+
+## The linear regeression model shows a prediction of 7,293,811 total passengers for March 2019
+## and a prediction of 7,557,349 total passengers for March 2020.
+## While the actual 2019 was 6,899,726 and the actual 2020 was 2,863,074
+## March 2019 was an overestmation maybe becasue due to increases from previous
+## years and the 2020 figure is off due to the model not seeing Covid-19 and its effects.
+
+# Getting years and total passenger counts as mentioned by Professors instructions
+regression_data <- total_passengers_by_year %>%
+  select(Year, Total_Passengers) %>%
+  filter(Year >= 2008 & Year <= 2018)
+
+# Finding the means of x (years) and y (total passengers)
+x_mean <- mean(regression_data$Year)
+y_mean <- mean(regression_data$Total_Passengers)
+
+# Finding the slope (b1) and intercept (b0)
+n <- nrow(regression_data)
+xy <- sum((regression_data$Year - x_mean) * (regression_data$Total_Passengers - y_mean))
+xx <- sum((regression_data$Year - x_mean)^2)
+
+#slope
+b1 <- xy / xx 
+#intercept
+b0 <- y_mean - b1 * x_mean 
+
+# Predicting for 2019 and 2020 using the coefficients
+predict_passengers <- function(year, b0, b1) {
+  b0 + b1 * year
+}
+
+predicted_2019 <- predict_passengers(2019, b0, b1)
+predicted_2020 <- predict_passengers(2020, b0, b1)
+
+list(predicted_2019 = predicted_2019, predicted_2020 = predicted_2020)
+
+print(actual_2019)
+
+actual_2020 <- total_passengers_by_year %>%
+  filter(Year == 2020) %>%
+  pull(Total_Passengers)
+
+print(actual_2020)
+```
+```{r}
+# Q7
+
+## The MSE for exponential smoothing model is 139,638,420,983
+## The MSE for linear model is 20,069,065,988
+## Linear has smaller MSE in comparison to exponential smoothing model from data 2006 to 2018
+## Basucally linear is closer to the observed values than the exponential smoothing models over this period
+
+# Smoothing constatnt from previous questions
+alpha <- 0.7
+
+# Set to 2008
+F <- numeric(length(regression_data$Year))
+F[1] <- regression_data$Total_Passengers[1]  # Assuming the first forecast is the actual value of the first year
+
+# Exponential smoothing
+for (i in 2:length(regression_data$Year)) {
+  F[i] <- alpha * regression_data$Total_Passengers[i-1] + (1 - alpha) * F[i-1]
+}
+
+# Get squared errors for exponential smoothing
+squared_errors_exp <- (regression_data$Total_Passengers - F)^2
+
+squared_errors_exp
+
+# MSE for exponential smoothing
+mse_exp <- mean(squared_errors_exp)
+
+mse_exp
+
+# Linear Regression Model Forecasts
+linear_forecasts <- b0 + b1 * regression_data$Year
+
+# Squared errors
+squared_errors_linear <- (regression_data$Total_Passengers - linear_forecasts)^2
+
+# MSE
+mse_linear <- mean(squared_errors_linear)
+
+linear_forecasts
+squared_errors_linear
+mse_linear
+
+
+```
+

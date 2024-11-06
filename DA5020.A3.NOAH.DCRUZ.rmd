@@ -1,0 +1,163 @@
+---
+title: "DA5020.A3.NOAH.DCRUZ"
+output: html_document
+date: "2024-01-28"
+---
+
+```{r}
+# Question 2
+
+# Load libraries
+library(readr)
+library(dplyr)
+library(tibble)
+library(lubridate)
+library(ggplot2)
+
+#Loading data
+trip <- read_csv("2018_Green_Taxi_Trip_Data-1.csv")
+
+# Get dimensions
+dim(trip)
+
+### 1,048,575 rows and 19 columns
+
+# Tkae glimpse of data
+glimpse(trip)
+
+### You can see the differet variable types
+
+#Summarizes data and shows stats details just like in Python
+summary(trip)
+
+# Ehail fee is missing. There are also missing NA's in fare_amount, total_amount
+# and trip_type columns
+
+## Similar to python this is frist 6 and last 6 
+
+head(trip)
+tail(trip)
+
+```
+
+
+
+
+```{r}
+# Question 3
+
+## New form
+trip$lpep_pickup_datetime <- mdy_hm(trip$lpep_pickup_datetime)
+trip$lpep_dropoff_datetime <- mdy_hm(trip$lpep_dropoff_datetime)
+
+#Summarizee
+summary_results <- trip %>%
+  summarize(
+    AvgTripdist = mean(trip_distance, na.rm = TRUE),
+    MedianPassenger = median(passenger_count, na.rm = TRUE),
+    CountNegzerofares = sum(fare_amount <= 0 | trip_distance <= 0, na.rm = TRUE),
+    Countnegativedurations = sum(lpep_dropoff_datetime < lpep_pickup_datetime, na.rm = TRUE),
+    Countbigfaresdistance = sum(fare_amount > 500 | trip_distance > 100, na.rm = TRUE)
+  )
+
+print(summary_results)
+
+## Comments (observation)
+# The avergae trip is 2.66 miles. I guess this is somewhat short or small
+# The median passenger count is 1. Majority of rides are individual
+# Comments(Inspection)
+# There are apparently 15,792 times when the distance or fare amount is less than or equal to 0. Something is wrong here missing data I guess
+# There are 0 rides withh negative durations which is a good sign beacuse it makes sense
+# There are 7 rides with fare amount bigger than 500 or distance greater than 100. Maybe outliers rare unique cases that need investgiation
+
+```
+
+
+
+
+
+```{r}
+# Question 4(Hisogram)
+ggplot(trip, aes(x=trip_distance)) + geom_histogram() + scale_y_log10() +
+  labs(title="Histgram of distance",
+       x = 'Distance',
+       y = 'Freq')
+
+# Comments: Right skewed histogram. This just indicates that most of trips are jsut short range and low distance
+```
+
+
+```{r}
+# Queestion 5
+# Finding avg/mean and sd for tip_amount and trip_distance
+mean_tip_amount <- mean(trip$tip_amount, na.rm = TRUE)
+sd_tip_amount <- sd(trip$tip_amount, na.rm = TRUE)
+mean_trip_distance <- mean(trip$trip_distance, na.rm = TRUE)
+sd_trip_distance <- sd(trip$trip_distance, na.rm = TRUE)
+
+# Outliers more than 3 standard deviations from the mean(Mentioned by professor in q)
+tip_amount_outliers <- (trip$tip_amount < (mean_tip_amount - 3 * sd_tip_amount)) | 
+  (trip$tip_amount > (mean_tip_amount + 3 * sd_tip_amount))
+
+trip_distance_outliers <- (trip$trip_distance < (mean_trip_distance - 3 * sd_trip_distance)) | 
+  (trip$trip_distance > (mean_trip_distance + 3 * sd_trip_distance))
+
+# Total outlier
+cat("tip_amount outliers:", sum(tip_amount_outliers, na.rm = TRUE), "\n")
+cat("trip_distance outliers:", sum(trip_distance_outliers, na.rm = TRUE), "\n")
+
+## Just removing as mentioned in instrucitons
+trip <- trip[!tip_amount_outliers, ]
+
+### Comments: The number of outliers in data is huge
+## I think either the data is really big and huge range with lots of weird data entries or there was an error collecting data (maybbe both!)
+
+
+```
+
+```{r}
+# Question 6
+
+# Again this time for trip_distance 
+trip_distance_outliers <- (trip$trip_distance < (mean_trip_distance - 3 * sd_trip_distance)) | 
+  (trip$trip_distance > (mean_trip_distance + 3 * sd_trip_distance))
+
+# Remove the trip_distance outliers from the trip dataframe
+trip <- trip[!trip_distance_outliers, ]
+
+table(trip$payment_type)
+
+# Replace nums with labels from the doc
+trip$payment_type <- factor(trip$payment_type, levels = c(1, 2, 3, 4, 5, 6),
+                            labels = c("Credit Card", "Cash", "No Charge", "Dispute", "Unknown", "Voided Trip"))
+
+#Graph
+ggplot(trip, aes(x = payment_type, y = trip_distance)) + 
+  geom_boxplot() +
+  labs(title = "Distance vs Payment Type",
+       x = "Payment Type",
+       y = "Distance")
+
+### Comments
+# Dispute and unknown have less data types which makes sense
+# Credit and card have a wide range of distance and somewhat kind of simiar median (big stress on kind of)
+
+```
+
+
+```{r}
+#Question 7
+
+## I guess we could use imputation(jsut use stats to replace missing) and jsut removing NA'S. There is also just collecting more data or getting data accurately
+## Imputation uses stats such as median, mode, mean to replace NA
+## Just delete the NAS
+## For this data i can show deletion of Na's usually easier to do
+
+# Remove rows with any NAS
+cleaned_trip_data <- na.omit(trip)
+na_left <- sum(is.na(cleaned_trip_data))
+# Check if any NAA are left
+cat("NA's left:", na_left, "\n")
+
+```
+

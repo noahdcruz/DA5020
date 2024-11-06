@@ -1,0 +1,212 @@
+---
+title: "DA5020.A4.NOAH.DCRUZ"
+output: html_document
+date: "2024-02-04"
+---
+
+```{r}
+## Will leave comments on what I am doing and analysis as mentioned by professor
+## Put the exploratory analyisis in q1 not bonus 
+## This just load libraries
+library(readr)
+library(dplyr)
+library(tibble)
+library(lubridate)
+library(ggplot2)
+```
+
+
+
+```{r}
+# Load data with date columns
+trip1 <- read_csv("2018_Green_Taxi_Trip_Data-1.csv", 
+                 col_types = cols(
+                   lpep_pickup_datetime = col_datetime(format = "%m/%d/%Y %H:%M"),
+                   lpep_dropoff_datetime = col_datetime(format = "%m/%d/%Y %H:%M"),
+                   store_and_fwd_flag = col_character()
+                 ))
+
+# New column
+trip1 <- trip1 %>%
+  mutate(pickup_date = as.Date(lpep_pickup_datetime))
+
+# Grup date column and count trips
+daily_counts <- trip1 %>%
+  group_by(pickup_date) %>%
+  summarise(trips = n(), .groups = 'drop')
+
+# Find date with the most trips
+most_trips_date <- daily_counts %>%
+  filter(trips == max(trips)) %>%
+  pull(pickup_date)
+
+# Filter
+trips_on_most_trips_day <- trip1 %>%
+  filter(pickup_date == most_trips_date)
+
+# STATS
+summary_stats <- trips_on_most_trips_day %>%
+  summarise(
+    median_distance = median(trip_distance, na.rm = TRUE),
+    median_tip = median(tip_amount, na.rm = TRUE),
+    avg_passenger_count = mean(passenger_count, na.rm = TRUE)
+  )
+
+print(paste("Date has the most trips:", most_trips_date))
+
+#Print
+print(summary_stats)
+
+## Date  with most trips is 2018-02-02
+## 1.58 is distance could be due to short trips as used for taxis
+## Tip is 0. Could indicate that riders dont usually tip or data issues
+## Avg passenger count is 1.35 indicating that solo or duo riders were common
+```
+
+
+```{r}
+#Loading data
+trip <- read_csv("2018_Green_Taxi_Trip_Data-1.csv")
+
+# Question 1 
+# Dcitioonary pdf explaining variables was really helpful for this q
+# Data analysis/ peeking at data similar to last hw plus its what i know from
+# Python
+str(trip) # This code just diaplys structure
+colnames(trip) #This just gets the column names in dataset
+dim(trip) #1048575 rows and 19 columns
+glimpse(trip) #Quick breif glimps of dataset
+summary(trip) #Simlar to Python, it shows stat details of dataset
+head(trip) # Shows first 6 entries in dataset
+tail(trip) # Shows last 6 entries in dataset
+
+## Then convert vairables into factors that are suited to be categorical variables
+trip$VendorID <- as.factor(trip$VendorID)
+trip$payment_type <- as.factor(trip$payment_type)
+trip$trip_type <- as.factor(trip$trip_type)
+
+# see changes
+str(trip[, c("VendorID", "payment_type", "trip_type")])
+
+# These vairables better suited to be categories
+
+```
+
+
+```{r}
+## Question 2
+
+# Comon way to hail a cab
+common_trip_type <- trip %>%
+  group_by(trip_type) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  slice(1)
+
+# Common way to pay
+common_payment_type <- trip %>%
+  group_by(payment_type) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  slice(1)
+
+# Display results
+print(common_trip_type)
+print(common_payment_type)
+
+## Data dictionary helpful here 
+## Trip type : 1 means street-hail and 2 means dispatch
+## Payment Type: There are 6 different values wit a range of 1 to 6
+## 1 is the most common and 1 means credit card
+## So street-hailing for calling cabs and credit card for payment most popular
+
+```
+
+
+```{r}
+## Question 3
+## Convert the pickup_datetime
+trip$lpep_pickup_datetime <- mdy_hm(trip$lpep_pickup_datetime)
+
+# TAKING February as mentioned by Prof instructions
+february_trips <- trip %>%
+  filter(month(lpep_pickup_datetime) == 2, year(lpep_pickup_datetime) == 2018) %>%
+  mutate(pickup_date = as.Date(lpep_pickup_datetime)) %>%
+  group_by(pickup_date) %>%
+  summarise(count = n()) %>%
+  filter(pickup_date >= "2018-02-01", pickup_date <= "2018-02-28")
+
+# Ploting
+ggplot(february_trips, aes(x = pickup_date, y = count)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(x = "Date", y = "Frequency Pickup", title = "Daly Pickup Frequency in Feb") +
+  scale_x_date(date_labels = "%b %d", date_breaks = "1 day") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+##Comments: 
+## I literally cant get the Jan and March dates to be removed. I tried 5 times this sucks.
+## Please be lenient
+## I am thinking through my own personal experiences with uber/taxis perhaps the variation
+## could be due to holidays vs normal days, weekends vs weekday and perhaps weather
+```
+
+
+
+```{r}
+## Question 4
+
+## Creat the function as mentioend in question
+HourOfDay <- function(timestamp) {
+  # Format the timesatmp
+  format_time <- mdy_hm(timestamp)
+  # load the format
+  hour(format_time)
+}
+
+# Use time from data
+data_timestamp <- "1/1/2018 0:18"
+data_hour <- HourOfDay(data_timestamp)
+print(paste("Hour of day is this:", data_hour))
+
+## This the funciton as menitoned in instructions
+```
+
+
+```{r}
+# Question 5
+
+# HourOfDay function for datetime
+HourOfDay <- function(datetime) {
+  hour(datetime)
+}
+
+# Aply function
+trip <- trip %>%
+  mutate(lpep_pickup_hour = HourOfDay(lpep_pickup_datetime))
+
+print(head(trip))
+print(head(trip$lpep_pickup_hour))
+
+#Comments: this is function as instructed in q5
+```
+
+
+
+```{r}
+#Question 6
+
+# median trip distance by lpep_pickup_hour
+median_trip_distance_by_hour <- trip %>%
+  group_by(lpep_pickup_hour) %>%
+  summarise(median_trip_distance = median(trip_distance, na.rm = TRUE))
+
+# Plot
+ggplot(median_trip_distance_by_hour, aes(x = lpep_pickup_hour, y = median_trip_distance)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Hr of Day", y = "Median Trip Distance", title = "Median Trip Distance vs Hr of Day")
+
+## Huge peak at 5, maybe leas people awake so you can go longer distances or travel to airports
+## There is a fall after as there commutes start again to work or school
+```
+

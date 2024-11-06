@@ -1,0 +1,220 @@
+```{r}
+### Thjis just load libraries 
+library(rvest)
+library(dplyr)
+library(ggplot2)
+library(tidyr) 
+#Q1
+# Load url and had to read wikki btw
+url <- "https://en.m.wikipedia.org/wiki/List_of_countries_by_percentage_of_population_living_in_poverty"
+page <- read_html(url)
+tables <- page %>% html_table(fill = TRUE)
+df <- tables[[1]]
+## Print colomun names
+print(colnames(df))
+
+# Converting to numerioc
+convert_to_numeric <- function(x) {
+  as.numeric(gsub("[^0-9.]", "", x))
+}
+
+# Apply to columns in data
+cols_to_convert <- c("$2.15", "$3.65", "$6.85")
+df[cols_to_convert] <- lapply(df[cols_to_convert], function(x) sapply(x, convert_to_numeric))
+
+
+```
+
+
+```{r}
+# Question 2
+
+# Gini formual
+df <- df %>%
+  mutate(
+    `2.15` = as.numeric(`$2.15`),
+    `3.65` = as.numeric(`$3.65`),
+    `6.85` = as.numeric(`$6.85`),
+    GiniCoefficient = `2.15` / (`2.15` + (`3.65` + `6.85`) / 2)
+  )
+
+# Remove NAs or it mss up formula
+df <- df %>% filter(!is.na(GiniCoefficient))
+
+# Plot
+ggplot(df, aes(x = `2.15`, y = GiniCoefficient)) +
+  geom_point() +
+  geom_smooth(method = 'lm', color = 'blue') +
+  labs(title = 'Relationship between $2.15/day poverty rate and Simplified Gini coefficient',
+       x = '$2.15/day poverty rate', 
+       y = 'Simplified Gini coefficient') +
+  theme_minimal()
+
+# The scatterplot shows a positive relationship between the $2.15/day 
+# poverty rate and the simplified Gini coefficient calculated for each country.
+# This shows that as the poverty rate increases, 
+# income inequality also tends to be higher. Yet again, this simple analysis doesny
+# Fully explain the income inequality and how to solve it (Not an economist btw)
+
+```
+
+
+
+
+```{r}
+# Question 3
+
+# I did manual european countries
+european_countries <- c(
+  "Albania", "Andorra", "Austria", "Belarus", "Belgium", 
+  "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Cyprus",
+  "Czech Republic", "Denmark", "Estonia", "Finland", "France", 
+  "Germany", "Greece", "Hungary", "Iceland", "Ireland", "Italy", 
+  "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta",
+  "Moldova", "Monaco", "Montenegro", "Netherlands", "North Macedonia",
+  "Norway", "Poland", "Portugal", "Romania", "Russia", 
+  "San Marino", "Serbia", "Slovakia", "Slovenia", "Spain", 
+  "Sweden", "Switzerland", "Ukraine", "United Kingdom"
+)
+
+# Subset data for European countries
+european_df <- df %>%
+  filter(Country %in% european_countries)
+
+# AVG poverty rate for Europe 
+average_poverty_rates <- european_df %>%
+  summarise(across(c(`$2.15`, `$3.65`, `$6.85`), ~ mean(.x, na.rm = TRUE)))
+
+# This just basic reshpae
+average_poverty_rates_long <- pivot_longer(average_poverty_rates, cols = c(`$2.15`, `$3.65`, `$6.85`),
+                                           names_to = "PovertyLine", values_to = "AverageRate")
+
+# Plot
+ggplot(average_poverty_rates_long, aes(x = PovertyLine, y = AverageRate)) +
+  geom_bar(stat = "identity") +
+  labs(title = 'Average Poverty Rates in Europe',
+       x = 'Poverty Line', 
+       y = 'Average Poverty Rate (%)') +
+  theme_minimal()
+
+# Plot shows that the average poverty rate increases with each higher poverty line.
+# I think plot showsthat extreme poverty (as measured by the $2.15/day threshold) is not cmmon in 
+#  developed Europe economy. But more moderate levels of poverty are more in Europe with the higher thresholds.
+
+
+```
+
+
+
+```{r}
+# Question 4
+
+# This jsut gett column naems
+print(colnames(df))
+
+# Get second table
+second_table <- tables[[2]]
+
+# This renaming columsn 
+colnames(second_table) <- c("Country", "PovertyRate_WorldBank", "Year_WorldBank", "PovertyRate_OWID", "Year_OWID")
+
+# Merge the two dfs together based on coutry 
+merged_df <- merge(df, second_table, by = "Country")
+
+# Five countries here i just ttok form diff continents
+comparison_countries <- c("Morocco", "Argentina", "Vietnam", "Germany", "Mexico")
+
+# Filter fo picked countries compare the poverty rates
+comparison_df <- merged_df %>%
+  filter(Country %in% comparison_countries) %>%
+  select(Country, `2.15`, `3.65`, `6.85`, PovertyRate_WorldBank, PovertyRate_OWID)
+
+print(comparison_df)
+
+#Argentina has relatively low poverty rates at the $2.15 and $3.65 thresholds 
+#but big uincrease at the $6.85 threshold showing thier population earns between $3.65 and $6.85 
+# The World Bank and OWID rates are close shows a high level of poverty compared to first table data
+
+#Germany shows virtually no poverty at the given limits of 2,3 and 6
+#However, the World Bank and OWID rates are slightly higher possibly reflecting a more defined (I guess) national poverty line.
+
+
+#Mexico's poverty rates increase significantly with each limti
+#which show a wide distribution of income levels (growing population and developing ecomony?)
+#There a difference between the World Bank and OWID rates with OWID reporting a higher rate
+
+#Morocco shows a modest increase across the limits
+#but the national rates reported by the World Bank and OWID are significantly lower. (Different meaurements?)
+
+#Vietnam's rates are low at the $2.15 limit and rise with higher klimts. 
+#The World Bank and OWID rates differ, with OWID being a higher poverty rate
+
+#This basically shows that poverty has different measurements 
+#Also there is the factor that Countries who are industraizaling faster and younger populations will have
+# more poverty and income inequality, CONTTRAST this to germanty who is inudtrialized alread
+# and has office jobs and shrinking population
+```
+
+
+```{r}
+# Question 5
+
+# Reshape the data for plotting
+long_df <- comparison_df %>%
+  pivot_longer(cols = `2.15`:`6.85`, names_to = "Threshold", values_to = "Rate")
+
+# Plot
+ggplot(long_df, aes(x = Country, y = Rate, fill = Threshold)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_brewer(palette = "Pastel1") +
+  labs(title = "Poverty Rates by Threshold", x = "Country", y = "Rate (%)") +
+  theme_minimal()
+
+
+###Germany has the lowest rates of poverty
+#Argentina and Mexico have large poverty at the $6.85 threshold 
+#this may mean (I dont know) thier populations live on incomes between $3.65 and $6.85 per day
+#Morocco shows a substantial rate at the $6.85 limit,showing moderate poverty
+#Vietnam has relatively lower rates but shows an increasing trend (developinge conomy)
+
+# Reshape the data for plotting
+rates_df <- comparison_df %>%
+  pivot_longer(cols = c(PovertyRate_WorldBank, PovertyRate_OWID), names_to = "Source", values_to = "Rate")
+
+ggplot(rates_df, aes(x = Country, y = Rate, color = Source, group = Source)) +
+  geom_line() +
+  geom_point() +
+  scale_color_manual(values = c("World Bank" = "blue", "OWID" = "red")) +
+  labs(title = "World Bank vs. OWID Poverty Rates", x = "Country", y = "Rate (%)") +
+  theme_minimal()
+
+
+
+#There is a significant variation in poverty rates
+#Germany has the lowest poverty rate, while Mexico has the highest.
+#For Argentina, Germany, and Vietnam, the poverty rates appear to be similar across sources.
+#Morocco's poverty rate is smaller than Argentina and Mexico but biger than Germany Vietnam
+
+# Convert to numeric
+comparison_df <- comparison_df %>%
+  mutate(
+    PovertyRate_WorldBank = as.numeric(gsub("%", "", PovertyRate_WorldBank)),
+    PovertyRate_OWID = as.numeric(gsub("%", "", PovertyRate_OWID))
+  )
+
+# Pivt data 
+stacked_df <- comparison_df %>%
+  pivot_longer(cols = c(`2.15`, `3.65`, `6.85`, PovertyRate_WorldBank, PovertyRate_OWID), 
+               names_to = "Metric", values_to = "Rate")
+
+# Plot
+ggplot(stacked_df, aes(x = Country, y = Rate, fill = Metric)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Comprehensive Poverty Rate Comparison", x = "Country", y = "Rate (%)") +
+  theme_minimal()
+
+#We can see that Germany has relatively low rates across all metrics
+#While reamingin counties have a huge portion at the $6.85/day showing higher poverty levels
+```
+

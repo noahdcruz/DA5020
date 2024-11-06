@@ -1,0 +1,195 @@
+```{r}
+## Q1
+
+# Load libraries
+library(dplyr)
+library(ggplot2)
+
+# Get data
+diabetes_data <- read.csv("diabetes-1-1.csv")
+
+# Look at the first few rows
+head(diabetes_data)
+
+# Summary statistics
+summary(diabetes_data)
+
+# This is me checking Nas (I found none)
+sum(is.na(diabetes_data))
+
+# Basic structure looking
+glimpse(diabetes_data)
+
+#This is by 768 by 9 dimensions shape
+dim(diabetes_data)
+
+# Checking for distribution and outliers
+# Histogram
+numeric_columns <- sapply(diabetes_data, is.numeric)
+numeric_data <- diabetes_data[, numeric_columns]
+hist_list <- lapply(names(numeric_data), function(x) {
+  ggplot(diabetes_data, aes_string(x = x)) +
+    geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+    ggtitle(paste("Distribution of", x))
+})
+print(hist_list)
+
+# Plotting outliers
+boxplot_list <- lapply(names(numeric_data), function(x) {
+  ggplot(diabetes_data, aes_string(x = "factor(1)", y = x)) +
+    geom_boxplot(fill = "tomato", color = "black") +
+    ggtitle(paste("Boxplot of", x))
+})
+print(boxplot_list)
+
+```
+
+
+
+```{r}
+## Q2
+
+# Normalize using Min-Max scaling
+diabetes_data_normalized <- diabetes_data %>%
+  mutate(across(where(is.numeric), ~(. - min(.)) / (max(.) - min(.))))
+
+# Just checking useing head
+head(diabetes_data_normalized)
+
+# Summary statistics
+summary(diabetes_data_normalized)
+
+#All explanatory variables are now scaled between 0 and 1, which means no variable will dominate in model training due to scale
+#The outcome variable does not change because it's a categorical indicator which is 0 for no diabetes, 1 for diabetes and does not need scaling
+```
+
+
+
+```{r}
+#Q3
+
+#This is me loading caret library
+library(caret)
+
+set.seed(123)
+
+# This is indices
+trainIndex <- createDataPartition(diabetes_data_normalized$Outcome, p = 0.8, list = FALSE, times = 1)
+
+# Training and testing sets
+trainData <- diabetes_data_normalized[trainIndex, ]
+testData <- diabetes_data_normalized[-trainIndex, ]
+
+# This is me checking the rows for training and testing
+nrow(trainData)
+nrow(testData)
+
+#I split the normalized dataset into training and test sets using an 80/20 split as seen in instructions
+#Training has 615 entries and test has 153 entries
+```
+
+
+
+```{r}
+#Q4
+
+knn_predict <- function(train_data, test_data, k) {
+  # Calculate Euclidean distance between two points
+  euclidean_distance <- function(point1, point2) {
+    sqrt(sum((point1 - point2)^2))
+  }
+  
+  # Vector for predictions
+  predictions <- numeric(nrow(test_data))
+  
+  # Loop
+  for (i in 1:nrow(test_data)) {
+    # Finding distances of test instance and train instances
+    distances <- apply(train_data[, -ncol(train_data)], 1, function(x) euclidean_distance(x, test_data[i, -ncol(test_data)]))
+    
+    # This is me getting the indices of the near eneaighbors
+    nearest_neighbors <- order(distances)[1:k]
+    
+  
+    majority_vote <- as.integer(names(which.max(table(train_data[nearest_neighbors, "Outcome"]))))
+    
+    # Store 
+    predictions[i] <- majority_vote
+  }
+  
+  return(predictions)
+}
+
+predictions <- knn_predict(trainData, testData, k = 5)
+predictions
+#Got the answer that returned a list/vector of predictions
+#for all observations in the test as wanted by the professor
+
+```
+
+
+
+```{r}
+# Q5
+
+# Convert to factor type
+predictions_factor <- factor(predictions, levels = c(0, 1))
+outcomes_factor <- factor(testData$Outcome, levels = c(0, 1))
+
+# Create confusion matrix
+conf_matrix <- confusionMatrix(predictions_factor, outcomes_factor)
+
+# Get confusion matrix 
+print(conf_matrix)
+
+# Confusion matrix:
+#True Negatives ,TN: 90 observations were rightly predicted as not having diabetes
+#False Positives ,FP: 11 observations were wrongly predicted as having diabetes
+#True Positives ,TP: 25 observations were rightly predicted as having diabetes
+#False Negatives ,FN: 27 observations were wrongly predicted as not having diabetes
+
+#Key Metrics:
+#Accuracy (0.7516): About 75.16% of all predictions are right. I guess a decent score kind of a good performance of the model
+#Sensitivity (0.8911): 89.11% of the patients who do not have diabetes were correctly identified
+#Specificity (0.4808): This is kind of lower, only 48.08% of the actual diabetic patients were correctly identified. This means that the model is missing a significant number of positive cases
+#Positive Predictive Value (0.7692): When the model predicts diabetes, it is right 76.92% of the time
+#Negative Predictive Value (0.6944): When the model predicts no diabetes, it is right 69.44% of the time
+#Balanced Accuracy (0.6859): This is an average of sensitivity and specificity this kind of leads to a better measure of performance
+
+```
+
+
+
+```{r}
+#Q6
+
+# Thes just values of k
+k_values <- c(1, 3, 5, 7, 9)
+results <- list()
+
+# Loop through k values
+for (k in k_values) {
+  # Get predictions
+  predictions <- knn_predict(trainData, testData, k)
+  
+  # Convert to factor
+  predictions_factor <- factor(predictions, levels = c(0, 1))
+  outcomes_factor <- factor(testData$Outcome, levels = c(0, 1))
+  
+  # Create confusion matrix
+  conf_matrix <- confusionMatrix(predictions_factor, outcomes_factor)
+  
+  # Storing results
+  results[[paste("k =", k)]] <- conf_matrix
+}
+
+# Results foe each k
+results
+
+#The highest accuracy was achieved with k=3
+#where the model achieved an accuracy of 75.82%. 
+#This value of k not only provided the highest accuracy 
+#but also maintained a relatively high balanced accuracy
+
+```
+

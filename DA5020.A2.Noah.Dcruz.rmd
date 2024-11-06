@@ -1,0 +1,138 @@
+---
+title: "DA5020.A2.Noah.Dcruz.RMD"
+output: html_document
+date: "2024-01-21"
+---
+
+## Going to leave more comments as analysis and instructions on
+## what I am doing as indicated by Professor's feedback from last HW
+
+## Question 1
+## Part 2
+## This is just me loading data, libraries in and getting info
+
+```{r}
+library(ggplot2)
+library(dplyr)
+data(msleep)
+help(msleep)
+# Help shows the description of the dataset and the different variables including
+# the description of each
+
+
+## Dimensions, properties, observations and NAs of data
+
+dim(msleep)
+#There are 83 rows and 11 columns. 83 data entries or points and 11 variables
+glimpse(msleep)
+# This is literally a glimpse of the data. Bascially a brief overview of it
+head(msleep)
+# Shows the first 6 rows. For Python which I code in it gives 5 usually.
+# The first 6 you see are 6 different animals and you can see the difference in data
+# like sleep_total, order, conservation, genus and sleep_rem. Can also see NA's
+tail(msleep)
+# This is just like head but it shows the last 6. That is why its called tail!!!
+summary(msleep)
+# This literally summarizes the data same as Python. It gives statistics, range of
+# the variable in the dataset. Stats such as Min, 1st Quartile, Median, Mean, 3rd Quartile and Maximum. There are NA's present as well
+msleep %>%
+  summarize_all(list(~ sum(is.na(.))))
+# Name, Genus, order, sleep_total, awake have no NA
+# Vore has 7, conservation has 29, sleep_rem has 22 and sleep_cycle has 51
+
+```
+
+
+
+
+```{r}
+#Question 2
+
+# Proportions(dplyr)
+
+vore_proportions <- msleep %>%
+  group_by(vore) %>%
+  summarize(percentage = (n() / nrow(msleep)) * 100, .groups = 'drop')
+
+# Plotting (ggplot)
+
+ggplot(vore_proportions,aes(x=vore,y=percentage,fill=vore))+geom_col()+geom_text(aes(label=round(percentage,1)))+
+  labs(x="Diet Category (Vore)", y="Percentage",title="Split of diet categroy (vore)")
+
+# Comments on the graph
+# From looking at the %'s. I see herbivores are a majority at 38.6, omni second at 24.1, carnivores third at 22.9, NA fourth at 8.4 and insect at 6
+# I think this makes sense (I am not a wildlife expert btw) for a good ecosystem.
+# If herbivores are lower than carnivores and omnivores that means the carnivores and omnivores may starve to death
+# NA missing data needs to be gathered for better analysis
+
+```
+
+
+
+```{r}
+# Question 3
+
+#Just filter for omni as mentioned in hw Q
+omnivores_sleep_mean <- msleep %>%
+  filter(vore == 'omni') %>%
+  summarize(mean_sleep_total = mean(sleep_total, na.rm = TRUE))
+
+omnivores_sleep_mean
+
+# Commment: That means on average omnivores in the data sleep around 10.9 hrs per day
+# I guess analysis could be done to compare to strict meat eaters carnivores and plant eaters herbivores to see diet and sleep relation
+
+```
+
+
+
+```{r}
+# Question 4
+
+ggplot(msleep, aes(x=bodywt,y=brainwt)) + geom_point() + scale_x_log10() + scale_y_log10() + labs(x='body weight', y='brain weight',title='Body vs Brain weight')
+
+# Comments: The plot shows a postiive correlation between the two variables. As body weight increases, brain weight goes up
+# I guess the bigger the body weight of the animal the bigger the brain
+
+```
+
+
+
+```{r}
+# Question 5
+
+# Remove missing then Pearson
+pearson <- cor(msleep$bodywt,msleep$brainwt,use='complete.obs')
+pearson
+
+# Comments: The Pearson coefficient supports the graph from Question 4 as the coefficient is 0.93
+# Value closer to 1 in a range of 0 to 1 indicates that there is a strong link between body and brain weight in the data
+# So as body weight goes up so does brain weight
+
+```
+
+
+
+```{r}
+# Question 6
+
+# Mean and std
+mean_sleep_total <- mean(msleep$sleep_total, na.rm = TRUE)
+std_sleep_total <- sd(msleep$sleep_total, na.rm = TRUE)
+
+# Limit for outliers
+limit <- 1.5*std_sleep_total
+
+#Filter for outliers
+sleep_outliers <- msleep %>%
+  filter(abs(sleep_total - mean_sleep_total) > limit) %>%
+  select(name, sleep_total)
+
+print(sleep_outliers)
+
+# Comments: The data shows that the giraffe, elephants, whales, donkey, deer,seel and horse are on the smaller side while
+# bats, armadillos and opussums are on the higher end. There could be a biological reason to this
+# as giraffe, elephants, whales, donkey, deer,seel and horse are heavy while armadillos and bats are smaller(I am not a wildlife expertq)
+
+```
+
